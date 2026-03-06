@@ -2,17 +2,16 @@ import pandas as pd
 from pathlib import Path
 
 class FeatureEngineer:
+    '''
+    Creates features for CPI data to be used in forecasting models.
+    '''
     def __init__(self):
-        pass
+        self.bronze_data_path = Path(__file__).resolve().parent.parent.parent / "data" / "bronze" / "CPI_cleaned.csv"
 
-    def load_to_dataframe(self, bronze_data_path, file_pattern="*.csv"):
+    def load_to_dataframe(self):
         """Search for the csv file in the data folder and load it."""
-        folder = Path(bronze_data_path)
-        files = list(folder.glob(file_pattern))
-        if not files:
-            raise FileNotFoundError(f"No {file_pattern} found in {folder}")
         try:
-            df = pd.read_csv(files[0])
+            df = pd.read_csv(self.bronze_data_path)
             print(f"Data loaded successfully. Shape: {df.shape}")
             return df
         except Exception as e:
@@ -55,15 +54,33 @@ class FeatureEngineer:
         print(f"New shape: {data.shape}")
         
         return data
+    
+    def save_featured_data(self, df: pd.DataFrame, output_path: str):
+        """
+        Saves the dataframe with engineered features to a specified path in CSV format.
+
+        Args:
+            df (pd.DataFrame): The dataframe with lagged features.
+            output_path (str): The file path where the featured data should be saved.
+        """
+        try:
+            df.to_csv(output_path, index=False)
+            print(f"Featured data saved successfully to {output_path}")
+        except Exception as e:
+            print(f"An error occurred while saving the featured data: {e}")
 
 
 if __name__ == "__main__":
     featureMaker = FeatureEngineer()
-    data = featureMaker.load_to_dataframe("../data/bronze/P0141")
+    loaded_data = featureMaker.load_to_dataframe()
 
     # Generating 12 months of lags (1 year of historical context for each prediction)
     LAG_STEPS = 15
-    cpi_with_lags = featureMaker.create_lagged_features(data, steps=LAG_STEPS)
+    cpi_with_lags = featureMaker.create_lagged_features(loaded_data, steps=LAG_STEPS)
 
     # Preview the head to see Value_1, Value_2... alongside the target 'Value'
     cpi_with_lags.head()
+
+    # Save the featured data
+    output_file = Path(__file__).resolve().parent.parent.parent / "data" / "gold" / "CPI_final.csv"
+    featureMaker.save_featured_data(cpi_with_lags, output_file)

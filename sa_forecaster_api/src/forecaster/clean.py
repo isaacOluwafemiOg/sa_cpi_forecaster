@@ -2,6 +2,9 @@ import pandas as pd
 from pathlib import Path
 
 class DataCleaner:
+    '''
+    Cleans and processes CPI data for analysis.
+    '''
     def __init__(self,target_categories=None):
         self.target_categories = target_categories if target_categories is not None else [
             'CPI Headline',
@@ -18,17 +21,15 @@ class DataCleaner:
             'Restaurants and hotels',
             'Miscellaneous goods and services'
         ]
+        self.raw_data_path = Path(__file__).resolve().parent.parent.parent / "data" / "raw" / "CPI_latest.xlsx"
 
-    def load_to_dataframe(self, raw_data_path, file_pattern="*.xlsx"):
+    def load_to_dataframe(self) -> pd.DataFrame:
         """Search for the Excel file in the data folder and load it."""
-        folder = Path(raw_data_path)
-        files = list(folder.glob(file_pattern))
-        if not files:
-            raise FileNotFoundError(f"No {file_pattern} found in {folder}")
+        latest_file = self.raw_data_path
         
         # Stats SA Excel files often have multiple header rows; adjustment might be needed
         try:
-            df = pd.read_excel(files[0])
+            df = pd.read_excel(latest_file)
             print(f"Data loaded successfully. Shape: {df.shape}")
             return df
         except Exception as e:
@@ -174,12 +175,25 @@ class DataCleaner:
 
         return df_long
 
+    def save_cleaned_data(self, df: pd.DataFrame, output_path: str):
+        """
+        Saves the cleaned dataframe to a specified path in CSV format.
 
+        Args:
+            df (pd.DataFrame): The cleaned long-format dataframe.
+            output_path (str): The file path where the cleaned data should be saved.
+        """
+        try:
+            df.to_csv(output_path, index=False)
+            print(f"Cleaned data saved successfully to {output_path}")
+        except Exception as e:
+            print(f"An error occurred while saving the cleaned data: {e}")
 
 
 if __name__ == "__main__":
     cleaner = DataCleaner()
-    data = cleaner.load_to_dataframe("../data/raw/P0141")
+
+    data = cleaner.load_to_dataframe()
     
     # Apply the filter
     cpi_filtered = cleaner.filter_cpi_data(data)
@@ -205,6 +219,10 @@ if __name__ == "__main__":
     # Preview the results
     print(f"Long format shape: {cpi_long.shape}")
     print(cpi_long.head())
+
+    # Save the cleaned data
+    output_file = Path(__file__).resolve().parent.parent.parent / "data" / "bronze" / "CPI_cleaned.csv"
+    cleaner.save_cleaned_data(cpi_long, output_file)
 
 
 
