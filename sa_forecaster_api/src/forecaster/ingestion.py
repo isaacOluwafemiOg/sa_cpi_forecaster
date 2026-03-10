@@ -53,10 +53,10 @@ class StatsSAIngestor:
                         extracted_path = self.download_dir / filename
                         standardized_path = self.download_dir / f"CPI_{yyyymm}.xlsx"
                         try:
-                            extracted_path.rename(standardized_path,exist_ok=True)
+                            extracted_path.rename(standardized_path)
                             print(f"Successfully ingested {standardized_path} to {self.download_dir}")
                         except FileExistsError:
-                            print(f"Error: '{destination}' already exists. Replacing instead.")
+                            print(f"Error: '{standardized_path}' already exists. Replacing instead.")
                             standardized_path.unlink()  # Remove the existing file
                             extracted_path.rename(standardized_path)
                         except OSError as e:

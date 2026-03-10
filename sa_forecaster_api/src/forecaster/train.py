@@ -3,6 +3,7 @@ from typing import Any
 import pandas as pd
 from pathlib import Path
 from sklearn.feature_selection import SelectKBest
+import joblib
 
 # Scientific computing
 from scipy.stats import uniform
@@ -26,14 +27,10 @@ class Trainer:
 
 
     def load_to_dataframe(self):
-        """Search for the csv file in the data folder and load it."""
-        try:
-            df = pd.read_csv(self.gold_data_path)
-            print(f"Data loaded successfully. Shape: {df.shape}")
-            return df
-        except Exception as e:
-            print(f"An error occurred while loading the data: {e}")
-            return pd.DataFrame()
+        """Load csv file from the data folder."""
+        df = pd.read_csv(self.gold_data_path)
+        print(f"Data loaded successfully. Shape: {df.shape}")
+        return df
 
     # ==========================================
     # 1. Model Fitting Utility
@@ -98,6 +95,21 @@ class Trainer:
             print(f"Successfully trained model for: {category_name}")
             
         return fitted_models
+    
+    def save_models(self, models: dict, model_name: str = "CPI_models.joblib") -> None:
+        """
+        Saves the fitted models to disk using joblib.
+        
+        Args:
+            models (dict): A dictionary of fitted model objects.
+            save_path (Path): The directory path where models should be saved.
+        """
+        output_dir = Path(__file__).resolve().parent.parent.parent / "data" / "gold"
+        output_dir.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
+        output_file = output_dir / model_name
+        
+        joblib.dump(models, output_file)
+        print(f"Models saved to {output_file}")
 
 if __name__ == "__main__":
     trainer = Trainer()
@@ -112,3 +124,5 @@ if __name__ == "__main__":
     }
     
     fitted_models = trainer.train_all_categories(loaded_data, category_models)
+
+    trainer.save_models(fitted_models)

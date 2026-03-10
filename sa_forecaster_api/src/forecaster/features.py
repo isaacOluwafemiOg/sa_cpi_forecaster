@@ -10,13 +10,10 @@ class FeatureEngineer:
 
     def load_to_dataframe(self):
         """Search for the csv file in the data folder and load it."""
-        try:
-            df = pd.read_csv(self.bronze_data_path)
-            print(f"Data loaded successfully. Shape: {df.shape}")
-            return df
-        except Exception as e:
-            print(f"An error occurred while loading the data: {e}")
-            return pd.DataFrame()
+
+        df = pd.read_csv(self.bronze_data_path)
+        print(f"Data loaded successfully. Shape: {df.shape}")
+        return df
         
     # ==========================================
     # 1. Lagged Observations
@@ -55,20 +52,20 @@ class FeatureEngineer:
         
         return data
     
-    def save_featured_data(self, df: pd.DataFrame, output_path: str):
+    def save_featured_data(self, df: pd.DataFrame, file_name: str = "CPI_final.csv") -> None:
         """
         Saves the dataframe with engineered features to a specified path in CSV format.
 
         Args:
             df (pd.DataFrame): The dataframe with lagged features.
-            output_path (str): The file path where the featured data should be saved.
         """
-        try:
-            df.to_csv(output_path, index=False)
-            print(f"Featured data saved successfully to {output_path}")
-        except Exception as e:
-            print(f"An error occurred while saving the featured data: {e}")
-
+        output_dir = Path(__file__).resolve().parent.parent.parent / "data" / "gold"
+        output_dir.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
+        output_file = output_dir / file_name
+        
+        df.to_csv(output_file, index=False)
+        print(f"Data with engineered features saved successfully to {output_file}")
+        
 
 if __name__ == "__main__":
     featureMaker = FeatureEngineer()
@@ -82,5 +79,4 @@ if __name__ == "__main__":
     cpi_with_lags.head()
 
     # Save the featured data
-    output_file = Path(__file__).resolve().parent.parent.parent / "data" / "gold" / "CPI_final.csv"
-    featureMaker.save_featured_data(cpi_with_lags, output_file)
+    featureMaker.save_featured_data(cpi_with_lags)

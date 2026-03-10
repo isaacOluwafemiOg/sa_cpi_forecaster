@@ -7,20 +7,18 @@ class DataCleaner:
     '''
     def __init__(self,target_categories=None):
         self.target_categories = target_categories if target_categories is not None else [
-            'CPI Headline',
-            'Food and non alcoholic beverages',
-            'Alcoholic beverages and tobacco',
-            'Clothing and footwear',
-            'Housing and utilities',
-            'Household contents and equipment',
-            'Health',
-            'Transport',
-            'Communication',
-            'Recreation and culture',
-            'Education',
-            'Restaurants and hotels',
-            'Miscellaneous goods and services'
-        ]
+        'CPI Headline',
+        'Food and non alcoholic beverages',
+        'Alcoholic beverages and tobacco',
+        'Clothing and footwear',
+        'Housing and utilities',
+        'Health',
+        'Transport',
+        'Information and communication',
+        'Recreation, sport and culture',
+        'Education',
+        'Restaurants and accommodation services'
+    ]
         self.raw_data_path = Path(__file__).resolve().parent.parent.parent / "data" / "raw" / "CPI_latest.xlsx"
 
     def load_to_dataframe(self) -> pd.DataFrame:
@@ -28,13 +26,9 @@ class DataCleaner:
         latest_file = self.raw_data_path
         
         # Stats SA Excel files often have multiple header rows; adjustment might be needed
-        try:
-            df = pd.read_excel(latest_file)
-            print(f"Data loaded successfully. Shape: {df.shape}")
-            return df
-        except Exception as e:
-            print(f"An error occurred while loading the data: {e}")
-            return pd.DataFrame()
+        df = pd.read_excel(latest_file)
+        print(f"Data loaded successfully. Shape: {df.shape}")
+        return df
         
 
     # ==========================================
@@ -88,6 +82,15 @@ class DataCleaner:
         Returns:
             pd.DataFrame: Dataframe with unwanted education sub-categories removed.
         """
+        # first ensure there are more than one unique instances of 'Education' in the Category column
+        if df[df['Category'] == 'Education'].shape[0] <= 1:
+            print("No multiple sub-categories found for 'Education'.")
+            
+            #Dropping extra features that aren't needed
+            df_refined = df.drop(['H01','H02','H03','H05','H06','H13',
+                                  'H17','H18','H24','H25'],axis=1)
+            return df_refined
+        
         # List of sub-categories to remove as identified in the H05 column
         # These represent granular components that might deviate from the main index
         unwanted_edu_subcats = [
@@ -114,28 +117,34 @@ class DataCleaner:
     # 5. Time-Series Structural Alignment
     # ==========================================
 
-    def format_cpi_columns(self, df: pd.DataFrame, start_date: str = "2008-01-01",
-                            num_months: int = 187) -> pd.DataFrame:
+    def format_cpi_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Generates a standardized date range and assigns it as column headers.
-    
+        
         Args:
             df (pd.DataFrame): The filtered CPI dataframe.
-            start_date (str): The starting month of the dataset.
-            num_months (int): Total number of months up to the forecasting horizon 
-                            (July 2023 = 187 months from Jan 2008).
 
         Returns:
             pd.DataFrame: Dataframe with formatted date columns.
         """
-        # Generate a sequence of dates (end of month frequency)
-        date_index = pd.date_range(start=start_date, periods=num_months, freq='M')
+        # extract start mmyyyy and end mmyyyy from dataframe columns such that df.columns[1]
+        # is the start date in the format 'MOmmyyyy' and df.columns[-1] is the end date in the same format
+        start_date_str = df.columns[1]
+        end_date_str = df.columns[-1]
+        start_date = pd.to_datetime(start_date_str, format='MO%m%Y')
+        end_date = pd.to_datetime(end_date_str, format='MO%m%Y')
+        
+        # Generate a sequence of dates from start to end with monthly frequency
+        date_index = pd.date_range(start=start_date, end=end_date, freq='MS')
 
         
         formatted_dates = [f"{d.month}-{d.year}" for d in date_index]
 
         # Create the new column list
         new_columns = ['Category'] + formatted_dates
+
+        print(f"Generated {len(formatted_dates)} date columns from {start_date_str} to {end_date_str}.")
+        print(f"Expected columns: {new_columns[:5]} ... {new_columns[-5:]}")  # Show a sample of the new columns
         
         # Validation: Ensure column count matches data shape
         if len(new_columns) != df.shape[1]:
@@ -175,7 +184,7 @@ class DataCleaner:
 
         return df_long
 
-    def save_cleaned_data(self, df: pd.DataFrame, output_path: str):
+    def save_cleaned_data(self, df: pd.DataFrame,file_name: str = "CPI_cleaned.csv") -> None:
         """
         Saves the cleaned dataframe to a specified path in CSV format.
 
@@ -183,11 +192,13 @@ class DataCleaner:
             df (pd.DataFrame): The cleaned long-format dataframe.
             output_path (str): The file path where the cleaned data should be saved.
         """
-        try:
-            df.to_csv(output_path, index=False)
-            print(f"Cleaned data saved successfully to {output_path}")
-        except Exception as e:
-            print(f"An error occurred while saving the cleaned data: {e}")
+        output_dir = Path(__file__).resolve().parent.parent.parent / "data" / "bronze"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        output_file = output_dir / file_name
+        
+        df.to_csv(output_file, index=False)
+        print(f"Cleaned data saved successfully to {output_file}")
 
 
 if __name__ == "__main__":
@@ -199,30 +210,22 @@ if __name__ == "__main__":
     cpi_filtered = cleaner.filter_cpi_data(data)
 
     # Validate results
-    print(f"Categories selected: {len(cpi_filtered['Category'].unique())} of 13")
+    print(f"Categories selected: {len(cpi_filtered['Category'].unique())} of {len(cleaner.target_categories)}")
     print(cpi_filtered['Category'].unique())
 
     edu_filtered = cleaner.refine_education_category(cpi_filtered)
 
-    # Execute column renaming
-    # We expect 187 months (Jan 2008 to July 2023) + 1 'Category' column = 188 columns
+    # Execute column renaming and date formatting
     edu_filtered = cleaner.format_cpi_columns(edu_filtered)
-
-    # Check the last few columns to ensure it ends at 7-2023
-    print(f"Dataset structure: {edu_filtered.shape}")
-    print(f"Last column: {edu_filtered.columns[-1]}")
-
 
     # Apply the transformation
     cpi_long = cleaner.reshape_cpi_data(edu_filtered)
 
     # Preview the results
     print(f"Long format shape: {cpi_long.shape}")
-    print(cpi_long.head())
 
-    # Save the cleaned data
-    output_file = Path(__file__).resolve().parent.parent.parent / "data" / "bronze" / "CPI_cleaned.csv"
-    cleaner.save_cleaned_data(cpi_long, output_file)
+    # Save the cleaned data    
+    cleaner.save_cleaned_data(cpi_long)
 
 
 
