@@ -1,140 +1,129 @@
 import pandas as pd
-from pathlib import Path
 import numpy as np
+import logging
+from pathlib import Path
+from typing import List, Optional
+
+# Setup logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 class FeatureEngineer:
-    '''
-    Creates features for CPI data to be used in forecasting models.
-    '''
-    def __init__(self):
-        self.bronze_data_path = Path(__file__).resolve().parent.parent.parent / "data" / "bronze" / "CPI_cleaned.csv"
+    """
+    Transforms Silver-level CPI data into Gold-level features for ML models.
+    Includes Lagged variables, window statistics, and cyclical temporal features.
+    """
+    def __init__(self, lag_steps: int = 15):
+        self.lag_steps = lag_steps
+        base_path = Path(__file__).resolve().parent.parent.parent
+        self.silver_data_path = base_path / "data" / "silver" / "CPI_silver.csv"
+        self.gold_data_path = base_path / "data" / "gold" / "CPI_gold.csv"
 
-    def load_to_dataframe(self):
-        """Search for the csv file in the data folder and load it."""
-
-        df = pd.read_csv(self.bronze_data_path)
-        print(f"Data loaded successfully. Shape: {df.shape}")
+    def _create_lags(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Creates auto-regressive lags within each category group."""
+        df = df.sort_values(['Category', 'Date']).copy()
+        
+        for i in range(1, self.lag_steps + 1):
+            df[f'Value_{i}'] = df.groupby('Category')['Value'].shift(i)
+        
         return df
-        
-    # ==========================================
-    # 1. Lagged Observations
-    # ==========================================
 
-    def create_lagged_features(self, df: pd.DataFrame, steps: int) -> pd.DataFrame:
+    def _calculate_vectorized_trend(self, lag_data: pd.DataFrame) -> np.ndarray:
         """
-        Creates auto-regressive features by shifting the CPI values.
-        
-        This function treats each CPI category as an independent time series 
-        to prevent data leakage between different categories.
-
-        Args:
-            df (pd.DataFrame): Long-format dataframe (Expected order: Descending by Date).
-            steps (int): The number of previous months to use as features.
-
-        Returns:
-            pd.DataFrame: Dataframe with new columns 'Value_1', 'Value_2', etc., 
-                        representing past observations.
+        Calculates the linear slope (trend) across a horizontal set of lags.
+        Math: (sum(xi - x_mean)(yi - y_mean)) / sum(xi - x_mean)^2
         """
-        data = df.sort_values(by=['Category', 'Date'],
-                               ascending=[True, True]).copy()  # Ensure correct order for shifting
-    
-        # We group by 'Category' to ensure shifts happen within the same CPI class.
-        # We use .shift(i) because the data is sorted with the oldest dates at the top.
-        for i in range(1, steps + 1):
-            data[f'Value_{i}'] = data.groupby('Category')['Value'].shift(i)
-
-        # Drop rows with NaN values created by the shift (the oldest 'steps' months)
-        data = data.dropna(axis=0)
-        
-        # Reset index for a clean slate before modeling
-        data = data.reset_index(drop=True)
-        
-        print(f"Feature engineering complete. Created {steps} lag features.")
-        print(f"New shape: {data.shape}")
-        
-        return data
-    
-    # ==========================================
-    # 2. Feature Engineering (Time Series Summary Statistics)
-    # ==========================================
-
-    def vectorized_trend(self, lag_data):
-        """Calculates the linear trend slope across the lags."""
         n = lag_data.shape[1]
         if n < 2:
             return np.zeros(len(lag_data))
+        
         x = np.arange(n)
         x_mean = x.mean()
-        # (sum(xi - xmean)(yi - ymean)) / sum(xi - xmean)^2
-        numerator = ((lag_data.subtract(lag_data.mean(axis=1), axis=0))
-                    .multiply(x - x_mean, axis=1)).sum(axis=1)
-        denominator = ((x - x_mean)**2).sum()
+        
+        # Centering x and calculating denominator once
+        x_centered = x - x_mean
+        denominator = (x_centered**2).sum()
+        
+        # Centering y (lag_data) and calculating numerator
+        y_mean = lag_data.mean(axis=1)
+        y_centered = lag_data.subtract(y_mean, axis=0)
+        
+        numerator = (y_centered.multiply(x_centered, axis=1)).sum(axis=1)
         return numerator / denominator
 
-    def ts_stats_features(self, df: pd.DataFrame, steps: int) -> pd.DataFrame:
+    def ts_stats_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Creates auto-regressive features by shifting the CPI values.
-        
-        This function treats each CPI category as an independent time series 
-        to prevent data leakage between different categories.
-
-        Args:
-            df (pd.DataFrame): Long-format dataframe (Expected order: Descending by Date).
-            steps (int): The number of previous months to use as features.
-
-        Returns:
-            pd.DataFrame: Dataframe with new columns 'Value_1', 'Value_2', etc., 
-                        representing past observations.
+        Generates rolling window statistics (Mean, Std, Trend) based on lags.
+        This is a public method as it's also called during live inference.
         """
-        lagged_data = df[[f'Value_{i}' for i in range(1, steps + 1)]]
+        lag_cols = [f'Value_{i}' for i in range(1, self.lag_steps + 1)]
+        lag_data = df[lag_cols]
         
-        df_dict = {}
-        df_dict[f'past_{steps}_mean'] = lagged_data.mean(axis=1)
-        df_dict[f'past_{steps}_std'] = lagged_data.std(axis=1)
-        df_dict[f'past_{steps}_min'] = lagged_data.min(axis=1)
-        df_dict[f'past_{steps}_max'] = lagged_data.max(axis=1)
-        df_dict[f'past_{steps}_median'] = lagged_data.median(axis=1)
-        df_dict[f'past_{steps}_skew'] = lagged_data.skew(axis=1)
-        df_dict[f'past_{steps}_kurt'] = lagged_data.kurtosis(axis=1)
-        df_dict[f'past_{steps}_trend'] = self.vectorized_trend(lagged_data)
-        df_dict[f'past_{int(steps/2)}_trend'] = self.vectorized_trend(lagged_data.iloc[:, :int(steps/2)])
+        # Summary Stats
+        df[f'past_{self.lag_steps}_mean'] = lag_data.mean(axis=1)
+        df[f'past_{self.lag_steps}_std'] = lag_data.std(axis=1)
+        df[f'past_{self.lag_steps}_max'] = lag_data.max(axis=1)
+        df[f'past_{self.lag_steps}_min'] = lag_data.min(axis=1)
         
-        df_stats = pd.DataFrame(df_dict)
+        # Trend Stats (Long-term vs Short-term)
+        df[f'trend_long'] = self._calculate_vectorized_trend(lag_data)
+        df[f'trend_short'] = self._calculate_vectorized_trend(lag_data.iloc[:, :max(3, self.lag_steps // 2)])
+        
+        return df
 
-        # Concatenate the original dataframe with the new statistics dataframe
-        data = pd.concat([df, df_stats], axis=1)
-        
-        print("Time series summary statistics generated.")
-        print(f"New shape: {data.shape}")
-        
-        return data
+    def _add_cyclical_time_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Encodes Month as Sine/Cosine to preserve circular distance."""
+        df['month'] = df['Date'].dt.month
+        df['month_sin'] = np.sin(2 * np.pi * df['month'] / 12)
+        df['month_cos'] = np.cos(2 * np.pi * df['month'] / 12)
+        return df.drop(columns=['month'])
 
-    
-    
-    def save_featured_data(self, df: pd.DataFrame, file_name: str = "CPI_final.csv") -> None:
+    def transform(self, df: Optional[pd.DataFrame] = None, is_inference: bool = False) -> pd.DataFrame:
         """
-        Saves the dataframe with engineered features to a specified path in CSV format.
-
-        Args:
-            df (pd.DataFrame): The dataframe with lagged features.
+        The main pipeline. 
+        If is_inference is True, it expects a single row per category and doesn't drop NaNs.
         """
-        output_dir = Path(__file__).resolve().parent.parent.parent / "data" / "gold"
-        output_dir.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
-        output_file = output_dir / file_name
+        if df is None:
+            df = pd.read_csv(self.silver_data_path)
+            df['Date'] = pd.to_datetime(df['Date'])
+
+        # 1. Create Lags
+        df = self._create_lags(df)
         
-        df.to_csv(output_file, index=False)
-        print(f"Data with engineered features saved successfully to {output_file}")
+        # 2. Drop rows that don't have enough history (only for training)
+        if not is_inference:
+            df = df.dropna().reset_index(drop=True)
         
+        # 3. Add TS Stats
+        df = self.ts_stats_features(df)
+        
+        # 4. Add Cyclical Features
+        df = self._add_cyclical_time_features(df)
+        
+        logger.info("Feature engineering complete. Shape: %s", df.shape)
+        return df
+
+    def get_feature_list(self) -> List[str]:
+        """Returns the list of columns the model should actually use."""
+        # This excludes 'Category', 'Date', and the target 'Value'
+        dummy_df = pd.DataFrame(columns=[f'Value_{i}' for i in range(1, self.lag_steps + 1)])
+        # Trigger stats to get names
+        dummy_df = self.ts_stats_features(dummy_df)
+        
+        lag_cols = [f'Value_{i}' for i in range(1, self.lag_steps + 1)]
+        stat_cols = [c for c in dummy_df.columns if c not in lag_cols]
+        time_cols = ['month_sin', 'month_cos']
+        
+        return lag_cols + stat_cols + time_cols
+
+    def save_gold_data(self, df: pd.DataFrame):
+        self.gold_data_path.parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(self.gold_data_path, index=False)
+        logger.info("Gold data saved to %s", self.gold_data_path)
 
 if __name__ == "__main__":
-    featureMaker = FeatureEngineer()
-    loaded_data = featureMaker.load_to_dataframe()
-
-    # Generating 15 months of lags
-    LAG_STEPS = 15
-    cpi_with_lags = featureMaker.create_lagged_features(loaded_data, steps=LAG_STEPS)
-
-    cpi_with_lag_stats = featureMaker.ts_stats_features(cpi_with_lags, steps=LAG_STEPS)
-
-    # Save the featured data
-    featureMaker.save_featured_data(cpi_with_lag_stats)
+    fe = FeatureEngineer(lag_steps=15)
+    gold_df = fe.transform()
+    fe.save_gold_data(gold_df)
+    
+    logger.info("Features used for modeling: %s", fe.get_feature_list())
