@@ -66,12 +66,12 @@ class FeatureEngineer:
         df[f'past_{self.lag_steps}_min'] = lag_data.min(axis=1)
         
         # Trend Stats (Long-term vs Short-term)
-        df[f'trend_long'] = self._calculate_vectorized_trend(lag_data)
-        df[f'trend_short'] = self._calculate_vectorized_trend(lag_data.iloc[:, :max(3, self.lag_steps // 2)])
+        df['trend_long'] = self._calculate_vectorized_trend(lag_data)
+        df['trend_short'] = self._calculate_vectorized_trend(lag_data.iloc[:, :max(3, self.lag_steps // 2)])
         
         return df
 
-    def _add_cyclical_time_features(self, df: pd.DataFrame) -> pd.DataFrame:
+    def add_cyclical_time_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """Encodes Month as Sine/Cosine to preserve circular distance."""
         df['month'] = df['Date'].dt.month
         df['month_sin'] = np.sin(2 * np.pi * df['month'] / 12)
@@ -98,7 +98,7 @@ class FeatureEngineer:
         df = self.ts_stats_features(df)
         
         # 4. Add Cyclical Features
-        df = self._add_cyclical_time_features(df)
+        df = self.add_cyclical_time_features(df)
         
         logger.info("Feature engineering complete. Shape: %s", df.shape)
         return df

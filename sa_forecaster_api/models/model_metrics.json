@@ -1,0 +1,41 @@
+{
+    "last_train_date": "20260312_1702",
+    "rmse": 1.4541301987219133,
+    "features_used": [
+        "Value_1",
+        "Value_2",
+        "Value_3",
+        "Value_4",
+        "Value_5",
+        "Value_6",
+        "Value_7",
+        "Value_8",
+        "Value_9",
+        "Value_10",
+        "Value_11",
+        "Value_12",
+        "Value_13",
+        "Value_14",
+        "Value_15",
+        "past_15_mean",
+        "past_15_std",
+        "past_15_max",
+        "past_15_min",
+        "trend_long",
+        "trend_short",
+        "month_sin",
+        "month_cos"
+    ],
+    "hyperparameters": {
+        "iterations": 271,
+        "learning_rate": 0.10035063402724821,
+        "depth": 6,
+        "l2_leaf_reg": 0.05058186668347538,
+        "random_strength": 6.46315337959849e-07,
+        "grow_policy": "SymmetricTree",
+        "min_data_in_leaf": 54,
+        "bootstrap_type": "Bernoulli",
+        "subsample": 0.7820852147952388,
+        "colsample_bylevel": 0.9099252494432853
+    }
+}

@@ -3,7 +3,7 @@ from pathlib import Path
 from datetime import datetime
 import pandas as pd
 import joblib
-from typing import Tuple, List, Optional
+from typing import Optional
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -14,7 +14,7 @@ class CPIPredictor:
         # Configuration - Can be overridden by env variables in production
         base_path = Path(__file__).resolve().parent.parent.parent
         self.model_path = model_path or base_path / "models" / "CPI_model_latest.joblib"
-        self.gold_data_path = data_path or base_path / "data" / "gold" / "CPI_final.csv"
+        self.gold_data_path = data_path or base_path / "data" / "gold" / "CPI_gold.csv"
         self.predictions_output_path = base_path / "data" / "predictions"
         
         # Internal state
@@ -23,8 +23,9 @@ class CPIPredictor:
 
     def load_resources(self):
         """Loads model and metadata."""
-        
-        self.sel_features, self.model = joblib.load(self.model_path)
+        resource_dict = joblib.load(self.model_path)
+        self.sel_features = resource_dict['features']
+        self.model = resource_dict['model']
         logger.info("Model and features loaded from %s", self.model_path)
 
     def load_gold_data(self) -> pd.DataFrame:
@@ -34,7 +35,8 @@ class CPIPredictor:
         df['Date'] = pd.to_datetime(df['Date'])
         return df
 
-    def prepare_next_month_features(self, df: pd.DataFrame, ts_stats_fn) -> pd.DataFrame:
+    def prepare_next_month_features(self, df: pd.DataFrame, ts_stats_fn,
+                                    cyclical_time_fn) -> pd.DataFrame:
         """
         Takes the current dataset and prepares the feature row for the immediate next month.
         """
@@ -56,17 +58,16 @@ class CPIPredictor:
         new_features['Date'] = new_features['Date'] + pd.DateOffset(months=1)
 
         # Apply domain-specific feature engineering (stats, etc.)
-        # steps=15 matches your current model architecture
-        return ts_stats_fn(new_features, steps=15)
+        return cyclical_time_fn(ts_stats_fn(new_features))
 
-    def run_forecast_pipeline(self, feature_engineer_stats_fn, steps: int = None):
+    def run_forecast_pipeline(self, feature_engineer_stats_fn, cyclical_time_fn, steps: int = None):
         """
         Production entry point: Handles the full recursive forecasting loop.
         """
         self.load_resources()
         gold_data = self.load_gold_data()
         last_actual_date = gold_data['Date'].max()
-        
+
         # If steps not provided, calculate based on current date
         if steps is None:
             steps = (datetime.now().year - last_actual_date.year) * 12 + (datetime.now().month - last_actual_date.month)
@@ -79,23 +80,34 @@ class CPIPredictor:
 
         for step in range(1, steps + 1):
             # 1. Prepare features for the next step
-            inference_row = self.prepare_next_month_features(current_working_df, feature_engineer_stats_fn)
+            inference_row = self.prepare_next_month_features(current_working_df,
+                                                              feature_engineer_stats_fn,
+                                                              cyclical_time_fn)
             
             # 2. Predict
             inference_row['Value'] = self.model.predict(inference_row[self.sel_features])
+
             
             # 3. Store and Update working data for next iteration
-            all_new_predictions.append(inference_row)
             current_working_df = pd.concat([current_working_df, inference_row], ignore_index=True)
+
+            
+            all_new_predictions.append(inference_row)
             
             logger.info("Step %d/%d completed for date: %s",
                          step, steps, inference_row['Date'].max().strftime('%Y-%m'))
 
+        
         final_forecasts = pd.concat(all_new_predictions, ignore_index=True)
+
+        # round predictions to 2 decimal places for storage consistency
+        final_forecasts['Value'] = final_forecasts['Value'].round(2)
+
         self.save_predictions(final_forecasts, steps)
         return final_forecasts
 
     def save_predictions(self, df: pd.DataFrame, steps: int):
+        '''Saves the forecast results to a CSV file.'''
         month_str = datetime.now().strftime("%Y-%m")
         output_dir = self.predictions_output_path / month_str
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -112,6 +124,7 @@ if __name__ == "__main__":
     predictor = CPIPredictor()
     
     results = predictor.run_forecast_pipeline(
-        feature_engineer_stats_fn=fe.ts_stats_features
+        feature_engineer_stats_fn=fe.ts_stats_features,
+        cyclical_time_fn=fe.add_cyclical_time_features
     )
     print(results[['Category', 'Date', 'Value']].head())
