@@ -94,14 +94,13 @@ def get_latest_forecast():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/history", tags=["Data"])
-def get_historical_data(category: str = "CPI Headline"):
-    """Returns historical values for a specific category to plot trends."""
+def get_historical_data():
+    """Returns historical values to plot trends."""
     if not GOLD_DATA_FILE.exists():
         raise HTTPException(status_code=404, detail="Historical data file not found.")
     
     df = pd.read_csv(GOLD_DATA_FILE)
-    filtered = df[df['Category'] == category].sort_values('Date')
-    return filtered[['Date', 'Value']].to_dict(orient="records")
+    return df[['Category', 'Date', 'Value']].to_dict(orient="records")
 
 @app.get("/metrics", response_model=ModelMetrics, tags=["MLOps"])
 def get_model_metrics():
@@ -116,4 +115,3 @@ def get_model_metrics():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-    

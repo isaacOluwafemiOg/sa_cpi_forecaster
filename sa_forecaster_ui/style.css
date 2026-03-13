@@ -1,0 +1,9 @@
+.stApp {{
+
+    background-image: url({image});
+    background-size: cover;
+}}
+
+.stApp > header {{
+    background-color: transparent;
+}}
