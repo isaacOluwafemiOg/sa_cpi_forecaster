@@ -1,0 +1,40 @@
+name: Monthly CPI Retraining
+
+on:
+  schedule:
+    # Runs at 00:00 on the 25th of every month
+    - cron: '0 0 25 * *'
+  workflow_dispatch: # Allows you to trigger it manually from the GitHub UI
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Install dependencies with uv
+        run: |
+            cd sa_forecaster_api
+            uv pip install -r orchestrator_requirements.txt
+
+      - name: Run Pipeline
+        run: |
+            cd sa_forecaster_api
+            python run_pipeline.py --retrain
+
+      - name: Commit and Push changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add data/ models/
+          git commit -m "Automated monthly model retrain and forecast update [skip ci]"
+          git push
