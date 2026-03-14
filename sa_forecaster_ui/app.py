@@ -39,6 +39,9 @@ def get_metrics():
 def get_cached_data():
     return get_forecast(), get_historical_data(), get_metrics()
 
+
+
+
 def main():
     '''
     Main function to run the Streamlit app.
@@ -64,7 +67,8 @@ def main():
         st.write('The data used to train the model is ingested from the [Stats SA website](https://www.statssa.gov.za/).')
         
         col1, col2 = st.columns((1,1),gap='medium')
-        # convert '20260312_1702' to more readable format like 'March 2026'
+
+        # convert last train date to more readable format
         train_date = datetime.strptime(model_metrics['last_train_date'],
                                         '%Y%m%d_%H%M').strftime('%M %B %Y')
         model_metrics['rmse'] = round(model_metrics['rmse'], 2)
@@ -84,8 +88,21 @@ def main():
 
         st.write('The plot below shows the historical CPI values along with the latest forecast:')
         df = pd.DataFrame(historical_data)
-        df['Date'] = pd.to_datetime(df['Date'])
-        fig = px.line(df, x='Date', y='Value', color='Category', title='Historical CPI with Latest Forecast')
+        unique_categories = df['Category'].unique()
+        cat_options =st.multiselect('Category:',unique_categories,default=unique_categories)
+
+        num_months = st.slider('Number of Months:',
+                                min_value=6,
+                                max_value=df['Date'].dt.month.nunique(),
+                                step=1,value=12)
+        
+        # filter the dataframe based on selected categories and number of months
+        filtered_df = df[df['Category'].isin(cat_options)]
+        filtered_df['Date'] = pd.to_datetime(filtered_df['Date'])
+        latest_date = filtered_df['Date'].max()
+        filtered_df = filtered_df[filtered_df['Date'] >= latest_date - pd.DateOffset(months=num_months)]
+
+        fig = px.line(filtered_df, x='Date', y='Value', color='Category', title='Historical CPI with Latest Forecast')
         st.plotly_chart(fig, width='stretch')
 
     st.markdown('''
