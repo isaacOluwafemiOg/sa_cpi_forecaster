@@ -45,15 +45,15 @@ GOLD_DATA_FILE = BASE_DIR / "data" / "gold" / "CPI_gold.csv"
 # --- Schema Definitions ---
 class ForecastResponse(BaseModel):
     '''Defines the structure of the forecast response for API consumers.'''
-    category: str
-    date: str
-    value: float
+    Category: str
+    Date: str
+    Value: float
 
 class ModelMetrics(BaseModel):
     '''Metadata about the last training run, useful for MLOps monitoring.'''
     last_train_date: str
     rmse: float
-    features_used: List[str]
+    features_importance: Dict[str, float]
     hyperparameters: Dict[str, Any]
 
 # --- Endpoints ---
@@ -86,7 +86,7 @@ def get_latest_forecast():
         df = pd.read_csv(csv_files[0])
         # Convert to list of dicts for Pydantic
         df['Date'] = df['Date'].astype(str)
-        return df[['Category', 'Date', 'Value']].rename(columns=lambda x: x.lower()).to_dict(orient="records")
+        return df[['Category', 'Date', 'Value']].to_dict(orient="records")
     
     except Exception as e:
         logger.error("Error fetching forecast: %s", e)

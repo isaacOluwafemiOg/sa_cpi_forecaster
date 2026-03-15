@@ -3,3 +3,5 @@ catboost_info
 *.joblib
 train_local.py
 *.log
+*.ipynb
+__pycache__

@@ -149,11 +149,13 @@ class CPITrainer:
                                         random_state=42)
         final_model.fit(X, y)
 
+        importances = pd.Series(final_model.get_feature_importance(), index=X.columns).to_dict()
 
-        self._save_artifacts(final_model, feature_list, best_params, best_rmse)
+
+        self._save_artifacts(final_model, importances, best_params, best_rmse)
         return best_rmse
 
-    def _save_artifacts(self, model, features, params, score):
+    def _save_artifacts(self, model, importances, params, score):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M")
         
         # Save Model + Feature List
@@ -161,16 +163,16 @@ class CPITrainer:
         save_path = self.model_dir / model_filename
         self.model_dir.mkdir(parents=True, exist_ok=True)
         
-        joblib.dump({"model": model, "features": features}, save_path)
+        joblib.dump({"model": model, "features": importances}, save_path)
         
         # Update "latest" symlink/pointer
-        joblib.dump({"model": model, "features": features}, self.model_dir / "CPI_model_latest.joblib")
+        joblib.dump({"model": model, "features": importances}, self.model_dir / "CPI_model_latest.joblib")
 
         # Save Metrics JSON for Dashboard
         metrics = {
             "last_train_date": timestamp,
             "rmse": float(score),
-            "features_used": features,
+            "features_importance": importances,
             "hyperparameters": params
         }
         
