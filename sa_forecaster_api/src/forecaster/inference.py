@@ -10,10 +10,12 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 class CPIPredictor:
-    def __init__(self, model_path: Optional[Path] = None, data_path: Optional[Path] = None):
+    def __init__(self, model_path: Optional[Path] = None, data_path: Optional[Path] = None,
+                 encoder_path: Optional[Path] = None):
         # Configuration - Can be overridden by env variables in production
         base_path = Path(__file__).resolve().parent.parent.parent
         self.model_path = model_path or base_path / "models" / "CPI_model_latest.joblib"
+        self.encoder_path = encoder_path or base_path / "models" / "CPI_encoder_latest.joblib"
         self.gold_data_path = data_path or base_path / "data" / "gold" / "CPI_gold.csv"
         self.predictions_output_path = base_path / "data" / "predictions"
         
@@ -28,15 +30,19 @@ class CPIPredictor:
         self.model = resource_dict['model']
         logger.info("Model and features loaded from %s", self.model_path)
 
-    def load_gold_data(self) -> pd.DataFrame:
+    def load_gold_resources(self) -> pd.DataFrame:
         if not self.gold_data_path.exists():
             raise FileNotFoundError(f"Gold data not found at {self.gold_data_path}")
         df = pd.read_csv(self.gold_data_path)
         df['Date'] = pd.to_datetime(df['Date'])
-        return df
+
+        #get encoder
+        encoder_dict = joblib.load(self.encoder_path)
+
+        return df,encoder_dict
 
     def prepare_next_month_features(self, df: pd.DataFrame, ts_stats_fn,
-                                    cyclical_time_fn) -> pd.DataFrame:
+                                    cyclical_time_fn, interaction_fn) -> pd.DataFrame:
         """
         Takes the current dataset and prepares the feature row for the immediate next month.
         """
@@ -58,14 +64,15 @@ class CPIPredictor:
         new_features['Date'] = new_features['Date'] + pd.DateOffset(months=1)
 
         # Apply domain-specific feature engineering (stats, etc.)
-        return cyclical_time_fn(ts_stats_fn(new_features))
+        return interaction_fn(cyclical_time_fn(ts_stats_fn(new_features)))
 
-    def run_forecast_pipeline(self, feature_engineer_stats_fn, cyclical_time_fn, steps: int = None):
+    def run_forecast_pipeline(self, feature_engineer_stats_fn, cyclical_time_fn,
+                               interaction_fn, steps: int = None):
         """
         Production entry point: Handles the full recursive forecasting loop.
         """
         self.load_resources()
-        gold_data = self.load_gold_data()
+        gold_data, encoder_dict = self.load_gold_resources()
         last_actual_date = gold_data['Date'].max()
 
         # If steps not provided, calculate based on current date
@@ -82,10 +89,16 @@ class CPIPredictor:
             # 1. Prepare features for the next step
             inference_row = self.prepare_next_month_features(current_working_df,
                                                               feature_engineer_stats_fn,
-                                                              cyclical_time_fn)
+                                                              cyclical_time_fn,
+                                                              interaction_fn)
             
             # 2. Predict
-            inference_row['Value'] = self.model.predict(inference_row[self.sel_features])
+            to_model = inference_row.copy()
+            for col in encoder_dict:
+                if col in to_model.columns:
+                    to_model[col] = encoder_dict[col].transform(to_model[col])
+
+            inference_row['Value'] = self.model.predict(to_model[self.sel_features])
 
             
             # 3. Store and Update working data for next iteration
@@ -117,7 +130,6 @@ class CPIPredictor:
         logger.info("Final predictions saved to %s", file_path)
 
 if __name__ == "__main__":
-    # In production, this would be called by a FastAPI endpoint or a Celery task
     from sa_forecaster_api.src.forecaster.features import FeatureEngineer
     
     fe = FeatureEngineer()
@@ -125,6 +137,7 @@ if __name__ == "__main__":
     
     results = predictor.run_forecast_pipeline(
         feature_engineer_stats_fn=fe.ts_stats_features,
-        cyclical_time_fn=fe.add_cyclical_time_features
+        cyclical_time_fn=fe.add_cyclical_time_features,
+        interaction_fn=fe.add_interaction_features
     )
     print(results[['Category', 'Date', 'Value']].head())

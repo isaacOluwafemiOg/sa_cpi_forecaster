@@ -1,6 +1,5 @@
 .venv
 catboost_info
-*.joblib
 train_local.py
 *.log
 *.ipynb

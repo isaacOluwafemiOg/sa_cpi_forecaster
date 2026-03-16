@@ -22,13 +22,16 @@ class CPITrainer:
         self.model_dir = base_path / "models"
         self.metrics_path = base_path / "models" / "model_metrics.json"
 
-    def load_data(self) -> pd.DataFrame:
-        '''Loads the Gold-level CPI data for training.'''
+    def load_gold_resources(self) -> pd.DataFrame:
+        '''Loads the Gold-level CPI resources for training.'''
         df = pd.read_csv(self.gold_data_path)
         df['Date'] = pd.to_datetime(df['Date'])
         # Sort by date for TimeSeriesSplit
         df = df.sort_values('Date').reset_index(drop=True)
-        return df
+
+        #get encoder
+        encoder_dict = joblib.load(self.model_dir / "cpi_encoder_latest.joblib")
+        return df,encoder_dict
 
     def get_features_and_target(self, df: pd.DataFrame, feature_cols: list) -> tuple:
         '''Extracts feature matrix X and target vector y from the DataFrame.'''
@@ -36,21 +39,23 @@ class CPITrainer:
         y = df[self.target_col]
         return X, y
 
-    def run_feature_selection(self, df: pd.DataFrame, initial_features: list) -> list:
+    def run_feature_selection(self, df: pd.DataFrame, initial_features: list,
+                              cat_cols) -> list:
         """
         Streamlined feature selection using CatBoost importance.
-        In production, we often do this once and keep the features stable.
         """
         logger.info("Starting feature importance evaluation...")
         X = df[initial_features]
         y = df[self.target_col]
         
+        cat_features = [i for i, col in enumerate(X.columns) if col in cat_cols]
+        train_pool = Pool(X, y, cat_features=cat_features)
         model = CatBoostRegressor(iterations=500, silent=True, random_seed=42)
-        model.fit(X, y)
+        model.fit(train_pool)
         
         importances = pd.Series(model.get_feature_importance(), index=initial_features)
         # Keep features that contribute to the model
-        selected = importances[importances > 0].index.tolist()
+        selected = importances[importances > importances.quantile(0.25)].index.tolist()
         logger.info("Selected %d features out of %d", len(selected), len(initial_features))
         return selected
 
@@ -129,12 +134,20 @@ class CPITrainer:
 
     def train_and_save(self, feature_list: list):
         """Full training pipeline: Tune -> Fit Final -> Save."""
-        df = self.load_data()
-        X, y = self.get_features_and_target(df, feature_list)
+        df,encoder_dict = self.load_gold_resources()
 
+        df = df.copy()
+        for col in encoder_dict:
+            df[col] = encoder_dict[col].transform(df[col])
+
+        feature_list = self.run_feature_selection(df,feature_list,
+                                                  cat_cols=encoder_dict.keys())
+
+        X, y = self.get_features_and_target(df, feature_list)
+        
         logger.info("Starting hyperparameter tuning...")
         study = optuna.create_study(direction="minimize")
-        study.optimize(lambda trial: self.objective(trial, X, y, cat_cols=[]),
+        study.optimize(lambda trial: self.objective(trial, X, y, cat_cols=encoder_dict.keys()),
                         n_trials=20)
         
         best_params = study.best_params
@@ -152,10 +165,10 @@ class CPITrainer:
         importances = pd.Series(final_model.get_feature_importance(), index=X.columns).to_dict()
 
 
-        self._save_artifacts(final_model, importances, best_params, best_rmse)
+        self._save_artifacts(final_model, importances,feature_list, best_params, best_rmse)
         return best_rmse
 
-    def _save_artifacts(self, model, importances, params, score):
+    def _save_artifacts(self, model, importances,feature_list, params, score):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M")
         
         # Save Model + Feature List
@@ -163,10 +176,11 @@ class CPITrainer:
         save_path = self.model_dir / model_filename
         self.model_dir.mkdir(parents=True, exist_ok=True)
         
-        joblib.dump({"model": model, "features": importances}, save_path)
+        joblib.dump({"model": model, "features": feature_list}, save_path)
         
         # Update "latest" symlink/pointer
-        joblib.dump({"model": model, "features": importances}, self.model_dir / "CPI_model_latest.joblib")
+        joblib.dump({"model": model, "features": feature_list},
+                     self.model_dir / "CPI_model_latest.joblib")
 
         # Save Metrics JSON for Dashboard
         metrics = {
