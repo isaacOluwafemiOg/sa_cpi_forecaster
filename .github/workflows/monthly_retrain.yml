@@ -16,6 +16,9 @@ env:
 jobs:
   retrain:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./sa_forecaster_api
     outputs:
       commit_hash: ${{ steps.commit.outputs.commit_hash }}
     steps:
@@ -31,13 +34,11 @@ jobs:
 
       - name: Install Dependencies
         run: |
-            cd sa_forecaster_api
             pip install -r orchestrator_requirements.txt
 
       - name: Run Pipeline
         run: |
-            cd sa_forecaster_api
-            python run_pipeline.py --retrain
+            python -m src/forecaster/run_pipeline --retrain
 
       - name: Commit and Push changes
         id: commit
