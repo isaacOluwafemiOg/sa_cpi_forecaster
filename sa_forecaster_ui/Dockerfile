@@ -13,6 +13,7 @@ RUN pip install -r requirements.txt
 # Copy the rest of the application code
 # This includes style.css
 COPY style.css .
+COPY main.py .
 
 # Set PYTHONPATH
 ENV PYTHONPATH=/app
@@ -21,4 +22,4 @@ ENV PYTHONPATH=/app
 EXPOSE 8080
 
 # Command to run the UI
-CMD ["streamlit", "run", "app.py", "--server.port", "8080", "--server.address", "0.0.0.0"]
+CMD ["streamlit", "run", "main.py", "--server.port", "8080", "--server.address", "0.0.0.0"]
