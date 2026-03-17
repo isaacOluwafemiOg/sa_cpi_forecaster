@@ -102,6 +102,7 @@ def get_historical_data():
     df = pd.read_csv(GOLD_DATA_FILE)
     return df[['Category', 'Date', 'Value']].to_dict(orient="records")
 
+
 @app.get("/metrics", response_model=ModelMetrics, tags=["MLOps"])
 def get_model_metrics():
     """Returns the metadata about the last training run."""

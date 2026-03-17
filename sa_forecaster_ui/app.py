@@ -48,12 +48,7 @@ def get_pct_change(ref_date,forecast_df,historical_df,months=1):
     previous_date = ref_date - pd.DateOffset(months=months)
     prev_in_historical = previous_date <= historical_df['Date'].max()
 
-    #st.write(f"Reference date ({ref_date.strftime('%Y-%m')}) in historical data: {ref_in_historical}")
-    #st.write(f"Previous date ({previous_date.strftime('%Y-%m')}) in historical data: {prev_in_historical}")
-
-
     if not prev_in_historical:
-        #st.dataframe(forecast_df)
         ref_df = forecast_df.loc[forecast_df['Date'].astype(str).str.contains(ref_date.strftime('%Y-%m'))].reset_index(drop=True)
         ordered_ref_value = ref_df.sort_values('Category')['Value']
         prev_df = forecast_df.loc[forecast_df['Date'].astype(str).str.contains(previous_date.strftime('%Y-%m'))].reset_index(drop=True)
@@ -66,8 +61,6 @@ def get_pct_change(ref_date,forecast_df,historical_df,months=1):
         ordered_prev_value = prev_df.sort_values('Category')['Value']        
         
     elif (not ref_in_historical) and prev_in_historical:
-        #st.dataframe(forecast_df)
-        #get the forecasted value for ref_month
         ref_df = forecast_df.loc[forecast_df['Date'].astype(str).str.contains(ref_date.strftime('%Y-%m'))].reset_index(drop=True)
         ordered_ref_value = ref_df.sort_values('Category')['Value']
         prev_df = historical_df.loc[historical_df['Date'] == previous_date].reset_index(drop=True)
@@ -84,11 +77,8 @@ def get_pct_change(ref_date,forecast_df,historical_df,months=1):
     else:
         previous_date = previous_date.strftime('%B,%Y')
 
-    #st.write("displaying reference and previous dataframes used for percentage change calculation:")
-    #st.dataframe(ref_df)
-    #st.dataframe(prev_df)
-
     df = pd.DataFrame({'Category': ref_df.sort_values('Category')['Category'],
+                       'previous':ordered_prev_value.values,'ref':ordered_ref_value,
                         f'{previous_date} - {ref_date} % change': (ordered_ref_value.values-ordered_prev_value.values)/ordered_prev_value.values * 100})
     return df.reset_index(drop=True)
 
@@ -117,12 +107,29 @@ def main():
 
     combo = combine_forecast_with_historical(current_forecast, hist_df)
 
+    disp_current_forecast = current_forecast.drop(columns=['Data Type'])
+
+    hist_df['y-m'] = hist_df['Date'].dt.to_period('M')
+
     st.title('South Africa CPI Nowcasting Application')
-    #image = STATIC_DIR / "background_image.jpg"
-
-
-    #with open(STYLE_PATH, encoding='utf-8') as f:
-    #   st.markdown(f'<style>{f.read()}</style>',unsafe_allow_html=True)
+    
+    with st.sidebar:
+        st.header("Dashboard Filters")
+        unique_categories = hist_df['Category'].unique()
+        # Move this here so it applies to the whole app
+        cat_options = st.multiselect('Select Categories:', unique_categories, default=['CPI Headline'])
+        num_months = st.slider('Lookback Period (Months):', 6,
+                                min(60,hist_df['y-m'].nunique()), 12)
+        
+        horizon = st.selectbox('Period for Percentage Change Computation (Months):',
+                                options=[1,3,6,12],
+                                index=0,
+                                help="Number of months to look back for percentage change calculation")
+        
+        ref_date = pd.to_datetime(current_forecast['Date'].max())
+        ref_date_ch = st.date_input('Reference Date for Percentage Change Computation:',
+                                  value=ref_date, min_value=hist_df['Date'].min(),
+                                    max_value=current_forecast['Date'].max())
 
 
     tab_home, tab_visuals, tab_model_health = st.tabs(['Home','CPI Visualizations',
@@ -135,18 +142,26 @@ def main():
                 The model is retrained every month as new CPI data becomes available.')
         st.write('The data used to train the model is ingested from the [Stats SA website](https://www.statssa.gov.za/).')
         
-        col1, col2, col3 = st.columns((1,1,1),gap='medium')
+        col1, col2, col3, col4 = st.columns((2,1,1.5,1.5),gap='small')
 
         # convert last train date to more readable format
         train_date = datetime.strptime(model_metrics['last_train_date'],
                                         '%Y%m%d_%H%M').strftime('%d %B %Y')
         model_metrics['rmse'] = round(model_metrics['rmse'], 2)
+
+        headline_yoy_df = get_pct_change(pd.to_datetime(current_forecast['Date'].max()),
+                                        current_forecast, hist_df, months=12)
+        #st.dataframe(headline_yoy_df)
+        headline_yoy = headline_yoy_df[headline_yoy_df['Category'] == 'CPI Headline'].iloc[0, -1] 
+
         col1.metric("Last Train Date", train_date)
         col2.metric("Model RMSE", model_metrics['rmse'])
         col3.metric("CPI Last Published for", hist_df['Date'].max().strftime('%B %Y'))
+        col4.metric("YOY Headline CPI Difference", f"{round(headline_yoy, 1)}%", delta="YoY")
+        
 
         st.write('The table below shows the latest CPI forecast generated by the model:')
-        disp_current_forecast = current_forecast.drop(columns=['Data Type'])
+        
         # convert date to y-m format
         disp_current_forecast['Date'] = pd.to_datetime(
             disp_current_forecast['Date']).dt.strftime('%Y-%m')
@@ -166,15 +181,6 @@ def main():
 
         st.write('The plot below shows the historical CPI values along with the latest forecast:')
         
-        unique_categories = hist_df['Category'].unique()
-        cat_options =st.multiselect('Category:',unique_categories,default=unique_categories)
-
-        hist_df['y-m'] = hist_df['Date'].dt.to_period('M')
-        num_months = st.slider('Number of Months:',
-                                min_value=6,
-                                max_value=hist_df['y-m'].nunique(),
-                                step=1,value=12)
-        
         # filter the dataframe based on selected categories and number of months
         filtered_df = combo[combo['Category'].isin(cat_options)]
         
@@ -189,22 +195,24 @@ def main():
         st.plotly_chart(fig, width='stretch')
 
         # get percentage change defaulting to a reference date of the latest forecast month
-        
-        ref_date = pd.to_datetime(current_forecast['Date'].max())
-        ref_date_ch = st.date_input('Reference Date for % change:',
-                                  value=ref_date, min_value=filtered_df['Date'].min(),
-                                    max_value=current_forecast['Date'].max())
-        horizon = st.selectbox('Horizon (in months) for % comparison:', options=[1,3,6,12],
-                                index=0,
-                                help="Number of months to look back for percentage change calculation")
         pct_change_df = get_pct_change(ref_date_ch.strftime('%Y-%m'),
                                         current_forecast, hist_df, months=horizon)
 
-        #st.dataframe(pct_change_df)
+        pct_col_name = [col for col in pct_change_df.columns if 'change' in col][0]
+        pct_change_df['increment'] = pct_change_df[pct_col_name]>0
+        
+        
         # display percentage change with a plotly express bar chart
-        fig2 = px.bar(pct_change_df, x='Category', y=pct_change_df.columns[1], 
-                      title=pct_change_df.columns[1],
-                        labels={pct_change_df.columns[1]: 'Percentage Change (%)'})
+        # Create a specific color map
+        color_map = {True: '#EF553B', False: '#00CC96'} # Red for Up, Green for Down
+        fig2 = px.bar(pct_change_df, x='Category', y=pct_col_name, 
+                      title=pct_col_name,
+                        labels={pct_col_name: 'Percentage Change (%)'},
+                        color='increment',
+                        color_discrete_map=color_map, # Explicitly map the colors
+                        category_orders={"Category": pct_change_df.sort_values(
+                            pct_col_name, ascending=False)['Category']})
+        fig2.update_layout(showlegend=False)
         st.plotly_chart(fig2, width='stretch')
 
     with tab_model_health:

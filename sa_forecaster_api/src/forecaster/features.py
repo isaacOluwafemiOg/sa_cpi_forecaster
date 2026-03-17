@@ -71,7 +71,7 @@ class FeatureEngineer:
         """
         lag_cols = [f'Value_{i}' for i in range(1, self.lag_steps + 1)]
         lag_data = df[lag_cols]
-        diff_data = lag_data.diff(axis=1).iloc[:,1:]
+        diff_data = lag_data.diff(axis=1).iloc[:,1:4]
         diff_data = diff_data.rename(columns={col:f'diff_{col}' for col in diff_data.columns})
 
         # Summary Stats
@@ -80,9 +80,8 @@ class FeatureEngineer:
         df[f'past_{self.lag_steps}_max'] = lag_data.max(axis=1)
         df[f'past_{self.lag_steps}_min'] = lag_data.min(axis=1)
         df[f'past_{self.lag_steps}_median'] = lag_data.median(axis=1)
-        df[f'past_{self.lag_steps}_ptp'] = df[f'past_{self.lag_steps}_max'] - df[f'past_{self.lag_steps}_min']
-        df[f'past_{self.lag_steps}_pct_min'] = lag_data.pct_change(axis=1).mean(axis=1)
-        df[f'past_{self.lag_steps}_pct_max'] = lag_data.pct_change(axis=1).max(axis=1)
+        df[f'past_{self.lag_steps}_pct_median'] = lag_data.pct_change(axis=1).median(axis=1)
+        df[f'past_{self.lag_steps}_pct_std'] = lag_data.pct_change(axis=1).std(axis=1)
         
         # Trend Stats (Long-term vs Short-term)
         df['trend_long'] = self._calculate_vectorized_trend(lag_data)
