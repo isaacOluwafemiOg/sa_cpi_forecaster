@@ -108,10 +108,10 @@ The Streamlit UI provides:
 └── README.md
 ```
 
-⚖️ License & Acknowledgments
+## ⚖️ License & Acknowledgments
 
-License: MIT
+**License**: MIT
 
-Data Source: Statistics South Africa
+**Data Source**: Statistics South Africa
 
 Created by Isaac Oluwafemi Ogunniyi
