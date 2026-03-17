@@ -16,6 +16,8 @@ env:
 jobs:
   retrain:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
       commit_hash: ${{ steps.commit.outputs.commit_hash }}
     steps:
