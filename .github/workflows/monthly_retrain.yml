@@ -8,7 +8,7 @@ on:
 env:
   # Opt into Node.js 24 as requested by the deprecation warning
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  GCP_REGION: europe-west1 (Belgium)
+  GCP_REGION: europe-west1
   REPOSITORY: cpi-repo
   IMAGE_NAME: sa-cpi-api
   SERVICE_NAME: sa-cpi-api
