@@ -6,7 +6,9 @@ on:
   workflow_dispatch:
 
 env:
-  GCP_REGION: us-central1
+  # Opt into Node.js 24 as requested by the deprecation warning
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  GCP_REGION: europe-west1 (Belgium)
   REPOSITORY: cpi-repo
   IMAGE_NAME: sa-cpi-api
   SERVICE_NAME: sa-cpi-api
@@ -14,16 +16,16 @@ env:
 jobs:
   retrain:
     runs-on: ubuntu-latest
-    outputs: # Export the commit hash to ensure the deploy job uses the latest data
+    outputs:
       commit_hash: ${{ steps.commit.outputs.commit_hash }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4 # Upgraded from v3
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5 # Upgraded from v4
         with:
           python-version: '3.11'
 
@@ -49,40 +51,35 @@ jobs:
           echo "commit_hash=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
   containerize_deploy:
-    needs: retrain # Wait for retraining to finish
+    needs: retrain
     runs-on: ubuntu-latest
     steps:
       - name: Checkout updated code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4 # Upgraded from v3
         with:
-          ref: main # Pull the latest code (including the data/models pushed in the last job)
+          ref: main
 
-      # Authentication with GCP
       - name: Google Auth
         id: auth
-        uses: 'google-github-actions/auth@v1'
+        uses: 'google-github-actions/auth@v2' # Upgraded to latest v2
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
-      # Setup gcloud CLI
       - name: 'Set up Cloud SDK'
-        uses: 'google-github-actions/setup-gcloud@v1'
+        uses: 'google-github-actions/setup-gcloud@v2' # Upgraded to latest v2
 
-      # Configure Docker to use GCP Artifact Registry
       - name: Authorize Docker
         run: |
           gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev
 
-      # Build and Push the Docker Image
       - name: Build and Push Container
         run: |
           cd sa_forecaster_api
           docker build -t ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} .
           docker push ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-      # Deploy to Cloud Run
       - name: Deploy to Cloud Run
-        uses: 'google-github-actions/deploy-cloudrun@v1'
+        uses: 'google-github-actions/deploy-cloudrun@v2' # Upgraded to latest v2
         with:
           service: ${{ env.SERVICE_NAME }}
           region: ${{ env.GCP_REGION }}
