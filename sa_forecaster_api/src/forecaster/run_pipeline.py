@@ -93,7 +93,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="CPI Nowcasting Orchestrator")
     parser.add_argument(
         "--retrain", 
-        action="store_true", 
+        action="store_true",
         help="Force a full model retraining and hyperparameter tuning"
     )
     args = parser.parse_args()

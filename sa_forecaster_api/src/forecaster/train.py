@@ -30,7 +30,7 @@ class CPITrainer:
         df = df.sort_values('Date').reset_index(drop=True)
 
         #get encoder
-        encoder_dict = joblib.load(self.model_dir / "cpi_encoder_latest.joblib")
+        encoder_dict = joblib.load(self.model_dir / "CPI_encoder_latest.joblib")
         return df,encoder_dict
 
     def get_features_and_target(self, df: pd.DataFrame, feature_cols: list) -> tuple:
