@@ -29,11 +29,10 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install uv & Dependencies
+      - name: Install Dependencies
         run: |
-            curl -LsSf https://astral.sh/uv/install.sh | sh
             cd sa_forecaster_api
-            uv pip install -r orchestrator_requirements.txt
+            pip install -r orchestrator_requirements.txt
 
       - name: Run Pipeline
         run: |
