@@ -15,7 +15,7 @@ The system autonomously ingests monthly data from Statistics South Africa, execu
 
 The project follows a Decoupled Service Architecture and a Medallion Data Design, ensuring scalability and high availability.
 
-```Mermaid
+```mermaid
 graph TD
     subgraph "External Data"
         StatsSA[Stats SA Excel Portal]
