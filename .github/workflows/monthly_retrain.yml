@@ -8,7 +8,7 @@ on:
 env:
   # Opt into Node.js 24 as requested by the deprecation warning
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  GCP_REGION: europe-west1 (Belgium)
+  GCP_REGION: europe-west1
   REPOSITORY: cpi-repo
   IMAGE_NAME: sa-cpi-api
   SERVICE_NAME: sa-cpi-api
@@ -67,7 +67,7 @@ jobs:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
       - name: 'Set up Cloud SDK'
-        uses: 'google-github-actions/setup-gcloud@v2'
+        uses: 'google-github-actions/setup-gcloud@v3'
 
       - name: Authorize Docker
         run: |
@@ -80,7 +80,7 @@ jobs:
           docker push ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
       - name: Deploy to Cloud Run
-        uses: 'google-github-actions/deploy-cloudrun@v2' # Upgraded to latest v2
+        uses: 'google-github-actions/deploy-cloudrun@v3'
         with:
           service: ${{ env.SERVICE_NAME }}
           region: ${{ env.GCP_REGION }}
