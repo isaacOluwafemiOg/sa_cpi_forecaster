@@ -42,8 +42,8 @@ jobs:
       - name: Commit and Push changes
         id: commit
         run: |
-          git config --local user.email "isaacogunniyi1@gmail.com"
-          git config --local user.name "isaacoluwafemiog"
+          git config --local user.email "action@github.com"
+          git config --local user.name "Github Action"
           git add sa_forecaster_api/data/ sa_forecaster_api/models/
           git commit -m "Automated monthly model retrain [skip ci]" || echo "No changes to commit"
           git push
