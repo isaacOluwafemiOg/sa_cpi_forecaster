@@ -1,28 +1,35 @@
-name: Monthly CPI Retraining
+name: Monthly CPI Retraining & Deploy
 
 on:
   schedule:
-    # Runs at 00:00 on the 25th of every month
     - cron: '0 0 25 * *'
-  workflow_dispatch: # Allows you to trigger it manually from the GitHub UI
+  workflow_dispatch:
+
+env:
+  GCP_REGION: us-central1
+  REPOSITORY: cpi-repo
+  IMAGE_NAME: sa-cpi-api
+  SERVICE_NAME: sa-cpi-api
 
 jobs:
   retrain:
     runs-on: ubuntu-latest
+    outputs: # Export the commit hash to ensure the deploy job uses the latest data
+      commit_hash: ${{ steps.commit.outputs.commit_hash }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      - name: Install uv
-        run: curl -LsSf https://astral.sh/uv/install.sh | sh
-
-      - name: Install dependencies with uv
+      - name: Install uv & Dependencies
         run: |
+            curl -LsSf https://astral.sh/uv/install.sh | sh
             cd sa_forecaster_api
             uv pip install -r orchestrator_requirements.txt
 
@@ -32,9 +39,52 @@ jobs:
             python run_pipeline.py --retrain
 
       - name: Commit and Push changes
+        id: commit
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add data/ models/
-          git commit -m "Automated monthly model retrain and forecast update [skip ci]"
+          git commit -m "Automated monthly model retrain [skip ci]" || echo "No changes to commit"
           git push
+          echo "commit_hash=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+  containerize_deploy:
+    needs: retrain # Wait for retraining to finish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout updated code
+        uses: actions/checkout@v3
+        with:
+          ref: main # Pull the latest code (including the data/models pushed in the last job)
+
+      # Authentication with GCP
+      - name: Google Auth
+        id: auth
+        uses: 'google-github-actions/auth@v1'
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      # Setup gcloud CLI
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v1'
+
+      # Configure Docker to use GCP Artifact Registry
+      - name: Authorize Docker
+        run: |
+          gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev
+
+      # Build and Push the Docker Image
+      - name: Build and Push Container
+        run: |
+          cd sa_forecaster_api
+          docker build -t ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} .
+          docker push ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+      # Deploy to Cloud Run
+      - name: Deploy to Cloud Run
+        uses: 'google-github-actions/deploy-cloudrun@v1'
+        with:
+          service: ${{ env.SERVICE_NAME }}
+          region: ${{ env.GCP_REGION }}
+          image: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          flags: '--allow-unauthenticated --memory=1Gi --cpu=1'

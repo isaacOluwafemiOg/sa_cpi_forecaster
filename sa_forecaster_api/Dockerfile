@@ -20,8 +20,8 @@ COPY src/main.py ./src/main.py
 ENV PYTHONPATH=/app
 
 # Expose the port FastAPI will run on
-EXPOSE 8000
+EXPOSE 8080
 
 # Command to run the API
 # We point to src.main:app because main.py is inside the src/ folder
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080"]
