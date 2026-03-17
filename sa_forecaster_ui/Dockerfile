@@ -21,4 +21,4 @@ ENV PYTHONPATH=/app
 EXPOSE 8080
 
 # Command to run the UI
-CMD ["streamlit", "run", "app.py", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["streamlit", "run", "app.py", "--server.port", "8080", "--server.address", "0.0.0.0"]
