@@ -47,7 +47,7 @@ def run_full_pipeline(force_retrain: bool = False):
         logger.info("--- Stage 3: Feature Engineering (Silver to Gold) ---")
         fe = FeatureEngineer(lag_steps=15)
         gold_df = fe.transform()
-        fe.save_gold_data(gold_df)
+        fe.save_gold_resources(gold_df)
         feature_list = fe.get_feature_list()
 
         # --- 4. TRAINING (Conditional) ---
