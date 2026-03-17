@@ -38,7 +38,7 @@ jobs:
 
       - name: Run Pipeline
         run: |
-            python -m src/forecaster/run_pipeline --retrain
+            python src/forecaster/run_pipeline.py --retrain
 
       - name: Commit and Push changes
         id: commit
