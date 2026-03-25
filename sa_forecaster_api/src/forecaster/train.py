@@ -148,7 +148,7 @@ class CPITrainer:
         logger.info("Starting hyperparameter tuning...")
         study = optuna.create_study(direction="minimize")
         study.optimize(lambda trial: self.objective(trial, X, y, cat_cols=encoder_dict.keys()),
-                        n_trials=20)
+                        n_trials=100)
         
         best_params = study.best_params
         logger.info("Best Params: %s", best_params)
