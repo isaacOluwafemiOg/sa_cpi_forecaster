@@ -7,7 +7,7 @@
 
 ## 📌 Executive Summary
 
-This project is an end-to-end Machine Learning system that provides Nowcasts for South Africa’s Consumer Price Index (CPI) across 11 economic categories. Originally a 3rd Place winning solution for the RMB CPI Nowcasting Challenge on Zindi, it has been evolved into a production-grade, decoupled application.
+This project is an end-to-end Machine Learning system (accessible via [web link](https://sa-cpi-ui-650579830744.europe-west1.run.app)) that provides Nowcasts for South Africa’s Consumer Price Index (CPI) across 11 economic categories. Originally a 3rd Place winning solution for the RMB CPI Nowcasting Challenge on Zindi, it has been evolved into a production-grade, decoupled application.
 
 The system autonomously ingests monthly data from Statistics South Africa, executes a feature engineering pipeline, retrains optimized CatBoost models, and serves forecasts via a FastAPI backend and Streamlit dashboard.
 
