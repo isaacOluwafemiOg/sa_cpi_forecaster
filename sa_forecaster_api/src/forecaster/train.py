@@ -9,7 +9,10 @@ import pandas as pd
 from catboost import Pool, CatBoostRegressor
 from sklearn.metrics import root_mean_squared_error
 from sklearn.model_selection import TimeSeriesSplit
+from sa_forecaster_api.src.forecaster.config import settings
 
+
+HYPERPARAM_OPTIM_ITER = settings.HYPERPARAM_OPTIM_ITER
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -148,7 +151,7 @@ class CPITrainer:
         logger.info("Starting hyperparameter tuning...")
         study = optuna.create_study(direction="minimize")
         study.optimize(lambda trial: self.objective(trial, X, y, cat_cols=encoder_dict.keys()),
-                        n_trials=100)
+                        n_trials=HYPERPARAM_OPTIM_ITER)
         
         best_params = study.best_params
         logger.info("Best Params: %s", best_params)

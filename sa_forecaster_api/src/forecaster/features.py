@@ -6,7 +6,11 @@ from typing import List, Optional
 from sklearn.preprocessing import LabelEncoder
 import joblib
 from datetime import datetime
+from sa_forecaster_api.src.forecaster.config import settings
 
+
+LAG_COUNT = settings.LAG_COUNT
+CAT_COLS = settings.CAT_COLS
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -16,7 +20,7 @@ class FeatureEngineer:
     Transforms Silver-level CPI data into Gold-level features for ML model.
     Includes Lagged variables, window statistics, and cyclical temporal features.
     """
-    def __init__(self, lag_steps: int = 15):
+    def __init__(self, lag_steps: int = LAG_COUNT):
         self.lag_steps = lag_steps
         base_path = Path(__file__).resolve().parent.parent.parent
         self.silver_data_path = base_path / "data" / "silver" / "CPI_silver.csv"
@@ -55,7 +59,7 @@ class FeatureEngineer:
         numerator = (y_centered.multiply(x_centered, axis=1)).sum(axis=1)
         return numerator / denominator
     
-    def get_encoder(self, gold_df, cat_cols: List[str]) -> dict:
+    def get_encoder(self, gold_df, cat_cols: List[str] = CAT_COLS) -> dict:
         """Get label encoder for each categorical variable."""
         enc_dict = {}
         for col in cat_cols:
@@ -146,12 +150,12 @@ class FeatureEngineer:
         
         return ['Category'] + lag_cols + stat_cols + time_cols + interaction_cols
 
-    def save_gold_resources(self, df: pd.DataFrame,cat_cols):
+    def save_gold_resources(self, df: pd.DataFrame):
         self.gold_data_path.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(self.gold_data_path, index=False)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M")
 
-        encoders = self.get_encoder(df,cat_cols)
+        encoders = self.get_encoder(df)
         encoder_filename = f"cpi_encoder_{timestamp}.joblib"
         save_path = self.model_dir / encoder_filename
         self.model_dir.mkdir(parents=True, exist_ok=True)
@@ -165,8 +169,8 @@ class FeatureEngineer:
                     self.model_dir / "CPI_encoder_latest.joblib" )
 
 if __name__ == "__main__":
-    fe = FeatureEngineer(lag_steps=15)
+    fe = FeatureEngineer(lag_steps=LAG_COUNT)
     gold_df = fe.transform()
-    fe.save_gold_resources(gold_df,cat_cols=['month','category_month','Category'])
+    fe.save_gold_resources(gold_df)
     
     logger.info("Features used for encodering: %s", fe.get_feature_list())

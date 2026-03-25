@@ -1,6 +1,5 @@
 import logging
 import argparse
-from pathlib import Path
 from datetime import datetime
 
 # Import your modules
@@ -9,6 +8,9 @@ from sa_forecaster_api.src.forecaster.clean import DataCleaner
 from sa_forecaster_api.src.forecaster.features import FeatureEngineer
 from sa_forecaster_api.src.forecaster.train import CPITrainer
 from sa_forecaster_api.src.forecaster.inference import CPIPredictor
+from sa_forecaster_api.src.forecaster.config import settings
+
+CHOICE_MODEL = settings.CHOICE_MODEL
 
 # Setup centralized logging
 logging.basicConfig(
@@ -45,9 +47,9 @@ def run_full_pipeline(force_retrain: bool = False):
         
         # --- 3. FEATURE ENGINEERING ---
         logger.info("--- Stage 3: Feature Engineering (Silver to Gold) ---")
-        fe = FeatureEngineer(lag_steps=15)
+        fe = FeatureEngineer()
         gold_df = fe.transform()
-        fe.save_gold_resources(gold_df,cat_cols=['month','category_month','Category'])
+        fe.save_gold_resources(gold_df)
         feature_list = fe.get_feature_list()
 
         # --- 4. TRAINING (Conditional) ---
@@ -62,7 +64,7 @@ def run_full_pipeline(force_retrain: bool = False):
 
         # if there is no model in the models directory, we also need to train
         
-        elif not (trainer.model_dir / "CPI_model_latest.joblib").exists():
+        elif not (trainer.model_dir / f"{CHOICE_MODEL}.joblib").exists():
             logger.info("--- Stage 4: Training (No existing model found, retraining) ---")
             rmse_score = trainer.train_and_save(feature_list)
             logger.info("Initial training complete. RMSE: %.4f", rmse_score)

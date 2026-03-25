@@ -4,7 +4,9 @@ from datetime import datetime
 import pandas as pd
 import joblib
 from typing import Optional
+from sa_forecaster_api.src.forecaster.config import settings
 
+CHOICE_MODEL = settings.CHOICE_MODEL
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -14,7 +16,7 @@ class CPIPredictor:
                  encoder_path: Optional[Path] = None):
         # Configuration - Can be overridden by env variables in production
         base_path = Path(__file__).resolve().parent.parent.parent
-        self.model_path = model_path or base_path / "models" / "CPI_model_latest.joblib"
+        self.model_path = model_path or base_path / "models" / f"{CHOICE_MODEL}.joblib"
         self.encoder_path = encoder_path or base_path / "models" / "CPI_encoder_latest.joblib"
         self.gold_data_path = data_path or base_path / "data" / "gold" / "CPI_gold.csv"
         self.predictions_output_path = base_path / "data" / "predictions"

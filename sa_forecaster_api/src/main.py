@@ -79,7 +79,7 @@ def get_latest_forecast():
         
         latest_folder = month_folders[0]
         # Find the latest CSV inside that folder
-        csv_files = sorted(latest_folder.glob("*.csv"), reverse=True)
+        csv_files = sorted(latest_folder.glob("*.csv"))
         if not csv_files:
             raise HTTPException(status_code=404, detail="No forecast CSV files found.")
 

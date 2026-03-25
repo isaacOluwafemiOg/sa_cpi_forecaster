@@ -7,10 +7,14 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
+from sa_forecaster_api.src.forecaster.config import settings
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+PUB_CODE = settings.PUB_CODE
+STATSSA_BASE_URL = settings.STATSSA_BASE_URL
 
 class StatsSAIngestor:
     """
@@ -23,7 +27,7 @@ class StatsSAIngestor:
         else:
             self.download_dir = Path(__file__).resolve().parent.parent.parent / "data" / "raw"
         
-        self.base_url = "https://www.statssa.gov.za/timeseriesdata/Excel/"
+        self.base_url = STATSSA_BASE_URL
         self.download_dir.mkdir(parents=True, exist_ok=True)
         
         # Consistent headers to bypass WAF
@@ -44,7 +48,7 @@ class StatsSAIngestor:
             return False
         return True
 
-    def download_publication(self, pub_code: str = "P0141", yyyymm: str = "202601",
+    def download_publication(self, pub_code: str = PUB_CODE , yyyymm: str = "202601",
                               is_latest: bool = False) -> bool:
         standardized_path = self.download_dir / f"CPI_{yyyymm}.xlsx"
         
