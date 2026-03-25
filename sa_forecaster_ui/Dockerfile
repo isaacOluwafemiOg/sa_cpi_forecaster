@@ -14,6 +14,7 @@ RUN pip install -r requirements.txt
 # This includes style.css
 COPY style.css .
 COPY main.py .
+COPY .streamlit/ .
 
 # Set PYTHONPATH
 ENV PYTHONPATH=/app
