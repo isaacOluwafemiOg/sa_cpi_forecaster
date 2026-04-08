@@ -126,7 +126,7 @@ class CPITrainer:
                 colsample_bylevel=colsample_bylevel, min_data_in_leaf=min_data_in_leaf,
                 
                 objective='RMSE', task_type='CPU', random_state=42, silent=True,
-                use_best_model=True, eval_metric='RMSE'
+                use_best_model=False, eval_metric='RMSE'
                 )
             
             model.fit(train_pool, eval_set=test_pool)
