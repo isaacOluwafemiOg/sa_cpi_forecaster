@@ -219,6 +219,7 @@ Alcoholic beverages and tobacco,2026-01-01,104.8
 Alcoholic beverages and tobacco,2026-02-01,105.4
 Alcoholic beverages and tobacco,2026-03-01,106.3
 Alcoholic beverages and tobacco,2026-04-01,107.4
+Alcoholic beverages and tobacco,2026-05-01,107.5
 CPI Headline,2008-01-01,41.9
 CPI Headline,2008-02-01,42.2
 CPI Headline,2008-03-01,42.8
@@ -439,6 +440,7 @@ CPI Headline,2026-01-01,103.8
 CPI Headline,2026-02-01,104.2
 CPI Headline,2026-03-01,104.8
 CPI Headline,2026-04-01,106.0
+CPI Headline,2026-05-01,106.7
 Clothing and footwear,2008-01-01,61.5
 Clothing and footwear,2008-02-01,61.6
 Clothing and footwear,2008-03-01,61.8
@@ -659,6 +661,7 @@ Clothing and footwear,2026-01-01,101.3
 Clothing and footwear,2026-02-01,101.4
 Clothing and footwear,2026-03-01,101.6
 Clothing and footwear,2026-04-01,101.7
+Clothing and footwear,2026-05-01,101.8
 Education,2008-01-01,30.5
 Education,2008-02-01,30.5
 Education,2008-03-01,32.6
@@ -879,6 +882,7 @@ Education,2026-01-01,104.5
 Education,2026-02-01,104.5
 Education,2026-03-01,110.1
 Education,2026-04-01,110.1
+Education,2026-05-01,110.1
 Food and non alcoholic beverages,2008-01-01,34.3
 Food and non alcoholic beverages,2008-02-01,34.3
 Food and non alcoholic beverages,2008-03-01,34.8
@@ -1099,6 +1103,7 @@ Food and non alcoholic beverages,2026-01-01,104.8
 Food and non alcoholic beverages,2026-02-01,104.5
 Food and non alcoholic beverages,2026-03-01,104.5
 Food and non alcoholic beverages,2026-04-01,105.2
+Food and non alcoholic beverages,2026-05-01,105.3
 Health,2008-01-01,38.8
 Health,2008-02-01,40.7
 Health,2008-03-01,40.7
@@ -1319,6 +1324,7 @@ Health,2026-01-01,105.2
 Health,2026-02-01,107.3
 Health,2026-03-01,107.6
 Health,2026-04-01,107.8
+Health,2026-05-01,107.8
 Housing and utilities,2008-01-01,40.2
 Housing and utilities,2008-02-01,40.2
 Housing and utilities,2008-03-01,40.8
@@ -1539,6 +1545,7 @@ Housing and utilities,2026-01-01,104.9
 Housing and utilities,2026-02-01,104.9
 Housing and utilities,2026-03-01,105.7
 Housing and utilities,2026-04-01,105.8
+Housing and utilities,2026-05-01,106.0
 Information and communication,2008-01-01,106.6
 Information and communication,2008-02-01,106.5
 Information and communication,2008-03-01,106.4
@@ -1759,6 +1766,7 @@ Information and communication,2026-01-01,100.2
 Information and communication,2026-02-01,100.2
 Information and communication,2026-03-01,100.3
 Information and communication,2026-04-01,102.4
+Information and communication,2026-05-01,103.2
 "Recreation, sport and culture",2008-01-01,63.6
 "Recreation, sport and culture",2008-02-01,63.6
 "Recreation, sport and culture",2008-03-01,63.6
@@ -1979,6 +1987,7 @@ Information and communication,2026-04-01,102.4
 "Recreation, sport and culture",2026-02-01,103.5
 "Recreation, sport and culture",2026-03-01,104.1
 "Recreation, sport and culture",2026-04-01,104.3
+"Recreation, sport and culture",2026-05-01,105.0
 Restaurants and accommodation services,2008-01-01,38.6
 Restaurants and accommodation services,2008-02-01,38.9
 Restaurants and accommodation services,2008-03-01,39.6
@@ -2199,6 +2208,7 @@ Restaurants and accommodation services,2026-01-01,104.2
 Restaurants and accommodation services,2026-02-01,104.8
 Restaurants and accommodation services,2026-03-01,106.5
 Restaurants and accommodation services,2026-04-01,105.3
+Restaurants and accommodation services,2026-05-01,105.5
 Transport,2008-01-01,45.8
 Transport,2008-02-01,45.9
 Transport,2008-03-01,46.8
@@ -2419,3 +2429,4 @@ Transport,2026-01-01,99.9
 Transport,2026-02-01,99.1
 Transport,2026-03-01,99.7
 Transport,2026-04-01,105.2
+Transport,2026-05-01,109.5
